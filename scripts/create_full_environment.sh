@@ -8,7 +8,7 @@ function error() {
 
 # Check OS
 OS=$(awk -F= '/^ID=/ { print $2 }' /etc/os-release | tr -d '"')
-if [[ ! ${OS} =~ ^(centos)$ ]] && [[ ! ${OS} =~ ^(rhel)$ ]] && [[ ! ${OS} =~ ^(rocky)$ ]]; then
+if [[ ! ${OS} =~ ^(centos)$ ]] && [[ ! ${OS} =~ ^(rhel)$ ]] && [[ ! ${OS} =~ ^(rocky)$ ]] && [[ ! ${OS} =~ ^(almalinux)$ ]]; then
     error "\"${OS}\" is an unsupported OS. We support only CentOS, RHEL or Rocky."
     error "It's not recommended to run the code in this repo locally on your personal machine, as it makes some opinionated configuration changes to the machine it's running on"
     exit 1
