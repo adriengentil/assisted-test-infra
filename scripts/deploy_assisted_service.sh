@@ -75,6 +75,7 @@ if [ "${DEPLOY_TARGET}" == "onprem" ]; then
 elif [ "${DEPLOY_TARGET}" == "operator" ]; then
     # This nginx would listen to http on OCP_SERVICE_PORT and it would proxy_pass it to the actual route.
     export SERVICE_BASE_URL=http://${SERVICE_URL}:${OCP_SERVICE_PORT}
+    export IMAGE_SERVICE_BASE_URL=http://${SERVICE_URL}:${OCP_SERVICE_PORT}
     add_firewalld_port ${OCP_SERVICE_PORT}
 
     # TODO: Find a way to get the route dest dynamically.
