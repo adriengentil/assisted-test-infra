@@ -9,8 +9,6 @@ export SERVICE_URL=$(get_main_ip)
 export AUTH_TYPE=${AUTH_TYPE:-none}
 export NAMESPACE=${NAMESPACE:-assisted-installer}
 export SERVICE_PORT=$(( 6000 + $NAMESPACE_INDEX ))
-export IMAGE_SERVICE_PORT=$(( 6016 + $NAMESPACE_INDEX ))
-export IMAGE_SERVICE_BASE_URL=${SERVICE_BASE_URL:-"http://${SERVICE_URL}:${IMAGE_SERVICE_PORT}"}
 export SERVICE_INTERNAL_PORT=8090
 export IMAGE_SERVICE_INTERNAL_PORT=8080
 export SERVICE_BASE_URL=${SERVICE_BASE_URL:-"http://${SERVICE_URL}:${SERVICE_PORT}"}
@@ -20,7 +18,6 @@ export OPENSHIFT_INSTALL_RELEASE_IMAGE=${OPENSHIFT_INSTALL_RELEASE_IMAGE:-}
 export ENABLE_KUBE_API=${ENABLE_KUBE_API:-false}
 export ENABLE_KUBE_API_CMD="ENABLE_KUBE_API=${ENABLE_KUBE_API}"
 export DEBUG_SERVICE_NAME=assisted-service-debug
-export IMAGE_SERVICE_NAME=assisted-image-service
 export DEBUG_SERVICE_PORT=${DEBUG_SERVICE_PORT:-40000}
 export DEBUG_SERVICE=${DEBUG_SERVICE:-}
 export REGISTRY_SERVICE_NAME=registry
@@ -28,6 +25,12 @@ export REGISTRY_SERVICE_NAMESPACE=kube-system
 export REGISTRY_SERVICE_PORT=80
 export REGISTRY_SERVICE_HOST_PORT=5000
 
+export OCP_IMAGE_SERVICE_PORT=$(( 7001 + $NAMESPACE_INDEX ))
+export IMAGE_SERVICE_NAME=assisted-image-service
+export IMAGE_SERVICE_PORT=$(( 6016 + $NAMESPACE_INDEX ))
+export IMAGE_SERVICE_SCHEME="http"
+export IMAGE_SERVICE_HOST="${SERVICE_URL}:${IMAGE_SERVICE_PORT}"
+export IMAGE_SERVICE_BASE_URL=${IMAGE_SERVICE_BASE_URL:-"${IMAGE_SERVICE_SCHEME}://${IMAGE_SERVICE_HOST}"}
 
 if [[ "${ENABLE_KUBE_API}" == "true" || "${DEPLOY_TARGET}" == "operator" ]]; then
     # Only OS_IMAGES list is required in kube-api flow (assisted-service is using defaults if missing)
@@ -75,25 +78,40 @@ if [ "${DEPLOY_TARGET}" == "onprem" ]; then
 elif [ "${DEPLOY_TARGET}" == "operator" ]; then
     # This nginx would listen to http on OCP_SERVICE_PORT and it would proxy_pass it to the actual route.
     export SERVICE_BASE_URL=http://${SERVICE_URL}:${OCP_SERVICE_PORT}
-    export IMAGE_SERVICE_BASE_URL=http://${SERVICE_URL}:${OCP_SERVICE_PORT}
     add_firewalld_port ${OCP_SERVICE_PORT}
+
+    export IMAGE_SERVICE_HOST="${SERVICE_URL}:${OCP_IMAGE_SERVICE_PORT}"
+    export IMAGE_SERVICE_BASE_URL="${IMAGE_SERVICE_SCHEME}://${IMAGE_SERVICE_HOST}"
+    add_firewalld_port ${OCP_IMAGE_SERVICE_PORT}
 
     # TODO: Find a way to get the route dest dynamically.
     # Currently it's not possible since it would be available only after the operator would be deployed
     # The deploy.sh script would wait for the operator to succeed - so we need to have the LB before that.
-    ROUTE=dummy.route
+    SERVICE_ROUTE=dummy.service.route
+    IMAGE_SERVICE_ROUTE=dummy.image.service.route
 
     tee << EOF ${HOME}/.test-infra/etc/nginx/conf.d/http_localhost.conf
-upstream upstream_${SERVICE_URL//./_} {
-    server ${ROUTE}:443;
+upstream upstream_service_${SERVICE_URL//./_} {
+    server ${SERVICE_ROUTE}:443;
 }
 
+upstream upstream_image_service_${SERVICE_URL//./_} {
+    server ${IMAGE_SERVICE_ROUTE}:443;
+}
 server {
     listen ${SERVICE_URL}:${OCP_SERVICE_PORT};
 
     location / {
-        proxy_pass https://upstream_${SERVICE_URL//./_};
-        proxy_set_header Host ${ROUTE};
+        proxy_pass https://upstream_service_${SERVICE_URL//./_};
+        proxy_set_header Host ${SERVICE_ROUTE};
+    }
+}
+server {
+    listen ${SERVICE_URL}:${OCP_IMAGE_SERVICE_PORT};
+
+    location / {
+        proxy_pass https://upstream_image_service_${SERVICE_URL//./_};
+        proxy_set_header Host ${IMAGE_SERVICE_ROUTE};
     }
 }
 EOF
@@ -108,8 +126,12 @@ EOF
     # Update the LB configuration to point to the service route endpoint
     # Nginx is being updated every 60s
     # TODO: Restart nginx
-    PATCH_ROUTE=$(kubectl get routes ${SERVICE_NAME} -n assisted-installer --no-headers | awk '{print $2}')
-    sed -i "s/${ROUTE}/${PATCH_ROUTE}/g" "${HOME}/.test-infra/etc/nginx/conf.d/http_localhost.conf"
+    PATCH_SERVICE_ROUTE=$(kubectl get routes ${SERVICE_NAME} -n assisted-installer --no-headers | awk '{print $2}')
+    sed -i "s/${SERVICE_ROUTE}/${PATCH_SERVICE_ROUTE}/g" "${HOME}/.test-infra/etc/nginx/conf.d/http_localhost.conf"
+
+    PATCH_IMAGE_SERVICE_ROUTE=$(kubectl get routes ${IMAGE_SERVICE_NAME} -n assisted-installer --no-headers | awk '{print $2}')
+    sed -i "s/${IMAGE_SERVICE_ROUTE}/${PATCH_IMAGE_SERVICE_ROUTE}/g" "${HOME}/.test-infra/etc/nginx/conf.d/http_localhost.conf"
+
     sleep 60
 else
     print_log "Updating assisted_service params"
