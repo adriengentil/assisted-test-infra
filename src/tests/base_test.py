@@ -96,6 +96,20 @@ class BaseTest:
         yield config
 
     @pytest.fixture
+    def new_day2_controller_configuration(self, request: FixtureRequest) -> BaseNodesConfig:
+        """
+        Creates the controller configuration object according to the platform.
+        Override this fixture in your test class to provide a custom configuration object
+        :rtype: new node controller configuration
+        """
+        assert global_variables.tf_platform == consts.Platforms.BARE_METAL
+
+        config = TerraformConfig()
+
+        self.update_parameterized(request, config)
+        yield config
+
+    @pytest.fixture
     def infraenv_configuration(self) -> InfraEnvConfig:
         yield InfraEnvConfig()
 
@@ -122,6 +136,19 @@ class BaseTest:
         net_asset.release_all()
 
     @pytest.fixture
+    def prepared_day2_controller_configuration(
+        self, new_day2_controller_configuration: BaseNodesConfig
+    ) -> BaseNodesConfig:
+        assert isinstance(new_controller_configuration, TerraformConfig)
+
+        # Configuring net asset which currently supported by libvirt terraform only
+        net_asset = LibvirtNetworkAssets()
+        new_day2_controller_configuration.net_asset = net_asset.get()
+
+        yield new_day2_controller_configuration
+        net_asset.release_all()
+
+    @pytest.fixture
     def controller_configuration(
         self, request: pytest.FixtureRequest, prepared_controller_configuration: BaseNodesConfig
     ) -> BaseNodesConfig:
@@ -141,6 +168,27 @@ class BaseTest:
         """
         yield utils.run_marked_fixture(prepared_controller_configuration, "override_controller_configuration", request)
 
+    def day2_controller_configuration(
+        self, request: pytest.FixtureRequest, prepared_day2_controller_configuration: BaseNodesConfig
+    ) -> BaseNodesConfig:
+        """
+        Allows the test to modify the controller configuration by registering a custom fixture.
+        To register the custom fixture you have to mark the test with "override_controller_configuration" marker.
+
+        For example:
+
+        @pytest.fixture
+        def FIXTURE_NAME(self, prepared_controller_configuration):
+            yield prepared_controller_configuration
+
+        @pytest.mark.override_controller_configuration(FIXTURE_NAME.__name__)
+        def test_something(cluster):
+            pass
+        """
+        yield utils.run_marked_fixture(
+            prepared_day2_controller_configuration, "override_day2_controller_configuration", request
+        )
+
     @pytest.fixture
     def new_cluster_configuration(self, request: FixtureRequest) -> ClusterConfig:
         """
@@ -152,6 +200,18 @@ class BaseTest:
         self.update_parameterized(request, config)
 
         return config
+
+    # @pytest.fixture
+    # def new_day2_cluster_configuration(self, request: FixtureRequest) -> ClusterConfig:
+    #     """
+    #     Creates new cluster configuration object.
+    #     Override this fixture in your test class to provide a custom cluster configuration. (See TestInstall)
+    #     :rtype: new cluster configuration object
+    #     """
+    #     config = ClusterConfig()
+    #     self.update_parameterized(request, config)
+
+    #     return config
 
     @pytest.fixture
     def new_infra_env_configuration(self, request: FixtureRequest) -> InfraEnvConfig:
@@ -245,6 +305,12 @@ class BaseTest:
 
         return TerraformController(controller_configuration, entity_config=cluster_configuration)
 
+    def day2_controller(
+        self, day2_cluster_configuration: Day2ClusterConfig, day2_controller_configuration: BaseNodesConfig
+    ) -> NodeController:
+        assert cluster_configuration.platform == consts.Platforms.BARE_METAL
+        return TerraformController(day2_controller_configuration, entity_config=day2_cluster_configuration)
+
     @pytest.fixture
     def infraenv_controller(
         self, infra_env_configuration: InfraEnvConfig, controller_configuration: BaseNodesConfig, trigger_configurations
@@ -262,6 +328,10 @@ class BaseTest:
     @pytest.fixture
     def nodes(self, controller: NodeController) -> Nodes:
         return Nodes(controller)
+
+    @pytest.fixture
+    def day2_nodes(self, day2_controller: NodeController) -> Nodes:
+        return Nodes(day2_controller)
 
     @pytest.fixture
     def infraenv_nodes(self, infraenv_controller: NodeController) -> Nodes:
@@ -395,10 +465,16 @@ class BaseTest:
 
     @pytest.fixture
     @JunitFixtureTestCase()
-    def day2_cluster(self, request: FixtureRequest, cluster: Cluster, day2_cluster_configuration: Day2ClusterConfig):
+    def day2_cluster(
+        self,
+        request: FixtureRequest,
+        cluster: Cluster,
+        day2_cluster_configuration: Day2ClusterConfig,
+        day2_nodes: Nodes,
+    ):
         log.debug(f"--- SETUP --- Creating Day2 cluster for test: {request.node.name}\n")
         day2_cluster = Day2Cluster(
-            config=day2_cluster_configuration, cluster=cluster, infra_env_config=InfraEnvConfig()
+            config=day2_cluster_configuration, cluster=cluster, infra_env_config=InfraEnvConfig(), day2_nodes=day2_nodes
         )
 
         yield day2_cluster

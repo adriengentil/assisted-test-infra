@@ -8,6 +8,7 @@ from typing import Any
 
 import waiting
 from junit_report import JunitTestCase
+from assisted_test_infra.test_infra.helper_classes.nodes import Nodes
 
 import consts
 from assisted_test_infra.test_infra import BaseInfraEnvConfig, ClusterName, utils
@@ -23,13 +24,20 @@ from service_client.assisted_service_api import InventoryClient
 class Day2Cluster(BaseCluster):
     _config: BaseDay2ClusterConfig
 
-    def __init__(self, config: BaseDay2ClusterConfig, infra_env_config: BaseInfraEnvConfig, cluster: Cluster):
+    def __init__(
+        self, config: BaseDay2ClusterConfig, infra_env_config: BaseInfraEnvConfig, cluster: Cluster, day2_nodes: Nodes
+    ):
         self._day1_cluster: Cluster = cluster
-        self._api_vip = None
+        self._day1_api_vip = None
+        self._day1_ingress_vip = None
+        self._day1_base_cluster_domain = None
+        self._day1_api_vip_dnsname = None
 
-        super().__init__(self._day1_cluster.api_client, config, infra_env_config, self._day1_cluster.nodes)
-
+        self._day2_nodes = day2_nodes
         self._kubeconfig_path = utils.get_kubeconfig_path(self._config.day1_cluster_name)
+        self.name = config.cluster_name.get()
+
+        super().__init__(self._day1_cluster.api_client, config, infra_env_config, self._day2_nodes)
 
     def wait_until_hosts_are_discovered(self, allow_insufficient=False, nodes_count: int = None):
         statuses = [consts.NodesStatus.PENDING_FOR_INPUT, consts.NodesStatus.KNOWN]
@@ -51,17 +59,19 @@ class Day2Cluster(BaseCluster):
         openshift_cluster_id = str(uuid.uuid4())
         day1_cluster = self._day1_cluster.get_details()
 
-        self._api_vip = day1_cluster.api_vip
-        api_vip_dnsname = "api." + self._day1_cluster.name + "." + day1_cluster.base_dns_domain
+        self._day1_api_vip = day1_cluster.api_vip
+        self._day1_ingress_vip = day1_cluster.ingress_vip
+        self._day1_base_cluster_domain = f"{self._day1_cluster.name}.{day1_cluster.base_dns_domain}"
+        self._day1_api_vip_dnsname = f"api.{self._day1_base_cluster_domain}"
         self._config.day1_cluster_name = day1_cluster.name
         params = {"openshift_version": self._config.openshift_version, "api_vip_dnsname": api_vip_dnsname}
-        cluster = self.api_client.create_day2_cluster(self._day1_cluster.name + "-day2", openshift_cluster_id, **params)
+        cluster = self.api_client.create_day2_cluster(self.name, openshift_cluster_id, **params)
         self._config.cluster_id = cluster.id
 
-        self._config.cluster_name = ClusterName(
-            prefix=self._day1_cluster._config.cluster_name.prefix,
-            suffix=self._day1_cluster._config.cluster_name.suffix + cluster.name.replace(day1_cluster.name, ""),
-        )
+        # self._config.cluster_name = ClusterName(
+        #     prefix=self._day1_cluster._config.cluster_name.prefix,
+        #     suffix=self._day1_cluster._config.cluster_name.suffix + cluster.name.replace(day1_cluster.name, ""),
+        # )
 
         return cluster.id
 
@@ -71,29 +81,37 @@ class Day2Cluster(BaseCluster):
     def prepare_for_installation(self):
         self._config.day1_cluster_id = self._day1_cluster.id
 
-        day2_cluster = self.get_details()
-        self._config.cluster_id = day2_cluster.id
-        self._day1_cluster.set_pull_secret(self._config.pull_secret, cluster_id=day2_cluster.id)
-        self.set_cluster_proxy(day2_cluster.id)
-        self.config_etc_hosts(self._api_vip, day2_cluster.api_vip_dns_name)
+        self.set_pull_secret(self._config.pull_secret)
+        self.set_cluster_proxy()
+        self.config_etc_hosts(self._api_vip, self._api_vip_dnsname)
 
-        self.nodes.controller.tf_folder = os.path.join(
-            utils.TerraformControllerUtil.get_folder(self._day1_cluster.name), consts.Platforms.BARE_METAL
+        # self.nodes.controller.tf_folder = os.path.join(
+        #     utils.TerraformControllerUtil.get_folder(self._day1_cluster.name), consts.Platforms.BARE_METAL
+        # )
+        # self.configure_terraform()
+        # self._day1_cluster.download_image()
+
+        # static_network_config = None
+        # if self._day1_cluster._infra_env_config.is_static_ip:
+        #     static_network_config = self.nodes.controller.get_day2_static_network_data()
+        self.update_config(
+            api_vip=self._day1_api_vip,
+            ingress_vip=self._day1_ingress_vip,
+            worker_count=self._config.day2_workers_count,
+            cluster_base_domain=self._day1_base_cluster_domain,
         )
-        self.configure_terraform()
-        self._day1_cluster.download_image()
-
-        static_network_config = None
-        if self._day1_cluster._infra_env_config.is_static_ip:
-            static_network_config = self.nodes.controller.get_day2_static_network_data()
-
-        tfvars = utils.get_tfvars(self.nodes.controller.tf_folder)
-        self.download_image(
-            iso_download_path=tfvars["worker_image_path"],
-            static_network_config=static_network_config,
+        super(Day2Cluster, self).prepare_for_installation(
+            is_static_ip=self._day1_cluster._infra_env_config.is_static_ip
         )
+        self.nodes.wait_for_networking()
 
-    def set_cluster_proxy(self, cluster_id: str):
+        # tfvars = utils.get_tfvars(self.nodes.controller.tf_folder)
+        # self.download_image(
+        #     iso_download_path=tfvars["worker_image_path"],
+        #     static_network_config=static_network_config,
+        # )
+
+    def set_cluster_proxy(self):
         """
         Set cluster proxy - copy proxy configuration from another (e.g. day 1) cluster,
         or allow setting/overriding it via command arguments
@@ -102,7 +120,7 @@ class Day2Cluster(BaseCluster):
             http_proxy = self._config.proxy.http_proxy
             https_proxy = self._config.proxy.https_proxy
             no_proxy = self._config.proxy.no_proxy
-            self.api_client.set_cluster_proxy(cluster_id, http_proxy, https_proxy, no_proxy)
+            self.api_client.set_cluster_proxy(self.id, http_proxy, https_proxy, no_proxy)
 
     @classmethod
     def config_etc_hosts(cls, api_vip: str, api_vip_dnsname: str):
@@ -117,30 +135,30 @@ class Day2Cluster(BaseCluster):
         with open("/etc/hosts", "w") as f:
             f.writelines(hosts_lines)
 
-    def configure_terraform(self):
-        """
-        Use same terraform as the one used to spawn the day1 cluster,
-        update the variables accordingly in order to spawn the day2 worker nodes.
-        """
-        tfvars = utils.get_tfvars(self.nodes.controller.tf_folder)
-        self.configure_terraform_workers_nodes(tfvars)
-        tfvars["api_vip"] = self._api_vip
-        tfvars["running"] = True
-        utils.set_tfvars(self.nodes.controller.tf_folder, tfvars)
+    # def configure_terraform(self):
+    #     """
+    #     Use same terraform as the one used to spawn the day1 cluster,
+    #     update the variables accordingly in order to spawn the day2 worker nodes.
+    #     """
+    #     tfvars = utils.get_tfvars(self.nodes.controller.tf_folder)
+    #     self.configure_terraform_workers_nodes(tfvars)
+    #     tfvars["api_vip"] = self._api_vip
+    #     tfvars["running"] = True
+    #     utils.set_tfvars(self.nodes.controller.tf_folder, tfvars)
 
-    def configure_terraform_workers_nodes(self, tfvars: Any):
-        num_worker_nodes = self._config.day2_workers_count
-        tfvars["worker_count"] = tfvars["worker_count"] + num_worker_nodes
-        self.set_workers_addresses_by_type(
-            tfvars, num_worker_nodes, "libvirt_master_ips", "libvirt_worker_ips", "libvirt_worker_macs"
-        )
-        self.set_workers_addresses_by_type(
-            tfvars,
-            num_worker_nodes,
-            "libvirt_secondary_master_ips",
-            "libvirt_secondary_worker_ips",
-            "libvirt_secondary_worker_macs",
-        )
+    # def configure_terraform_workers_nodes(self, tfvars: Any):
+    #     num_worker_nodes = self._config.day2_workers_count
+    #     tfvars["worker_count"] = tfvars["worker_count"] + num_worker_nodes
+    #     self.set_workers_addresses_by_type(
+    #         tfvars, num_worker_nodes, "libvirt_master_ips", "libvirt_worker_ips", "libvirt_worker_macs"
+    #     )
+    #     self.set_workers_addresses_by_type(
+    #         tfvars,
+    #         num_worker_nodes,
+    #         "libvirt_secondary_master_ips",
+    #         "libvirt_secondary_worker_ips",
+    #         "libvirt_secondary_worker_macs",
+    #     )
 
     @classmethod
     def set_workers_addresses_by_type(

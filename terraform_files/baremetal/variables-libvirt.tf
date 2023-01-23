@@ -255,3 +255,9 @@ variable "libvirt_dns_records" {
   description = "DNS records to be added to the libvirt network"
   default     = {}
 }
+
+variable "cluster_base_domain" {
+  type        = string
+  description = "Set cluster base domain. Defaults to <cluster_name>.<cluster_domain> if left unset."
+  default     = ""
+}

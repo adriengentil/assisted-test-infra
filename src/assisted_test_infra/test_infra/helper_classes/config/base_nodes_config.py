@@ -35,6 +35,10 @@ class BaseNodesConfig(BaseConfig, ABC):
     worker_disk_count: int = None
     worker_boot_devices: List[str] = None
 
+    api_vip: Optional[str] = None
+    ingress_vip: Optional[str] = None
+    base_cluster_domain: Optional[str] = None
+
     network_mtu: int = None
     tf_platform: str = None  # todo - make all tf dependent platforms (e.g. vsphere, nutanix) inherit from BaseTerraformConfig  # noqa E501
 
