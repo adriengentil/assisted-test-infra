@@ -305,6 +305,7 @@ class BaseTest:
 
         return TerraformController(controller_configuration, entity_config=cluster_configuration)
 
+    @pytest.fixture
     def day2_controller(
         self, day2_cluster_configuration: Day2ClusterConfig, day2_controller_configuration: BaseNodesConfig
     ) -> NodeController:
