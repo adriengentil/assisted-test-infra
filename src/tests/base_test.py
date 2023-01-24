@@ -199,13 +199,13 @@ class BaseTest:
         return config
 
     @pytest.fixture
-    def new_day2_cluster_configuration(self, request: FixtureRequest) -> ClusterConfig:
+    def new_day2_cluster_configuration(self, request: FixtureRequest) -> Day2ClusterConfig:
         """
         Creates new cluster configuration object.
         Override this fixture in your test class to provide a custom cluster configuration. (See TestInstall)
         :rtype: new cluster configuration object
         """
-        config = ClusterConfig()
+        config = Day2ClusterConfig()
         self.update_parameterized(request, config)
 
         return config
