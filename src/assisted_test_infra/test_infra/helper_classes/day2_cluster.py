@@ -98,8 +98,10 @@ class Day2Cluster(BaseCluster):
             api_vip=self._day1_api_vip,
             ingress_vip=self._day1_ingress_vip,
             worker_count=self._config.day2_workers_count,
+            master_count=0,
             cluster_base_domain=self._day1_base_cluster_domain,
         )
+        log.debug(f"Day2Cluster.prepare_for_installation - controller configuration {self._day2_nodes.controller._config}\n")
         super(Day2Cluster, self).prepare_for_installation(
             is_static_ip=self._day1_cluster._infra_env_config.is_static_ip
         )
