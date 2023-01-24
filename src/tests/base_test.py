@@ -114,10 +114,6 @@ class BaseTest:
         yield InfraEnvConfig()
 
     @pytest.fixture
-    def day2_cluster_configuration(self) -> Day2ClusterConfig:
-        yield Day2ClusterConfig()
-
-    @pytest.fixture
     def prepared_controller_configuration(self, new_controller_configuration: BaseNodesConfig) -> BaseNodesConfig:
         if not isinstance(new_controller_configuration, TerraformConfig):
             yield new_controller_configuration
@@ -202,17 +198,17 @@ class BaseTest:
 
         return config
 
-    # @pytest.fixture
-    # def new_day2_cluster_configuration(self, request: FixtureRequest) -> ClusterConfig:
-    #     """
-    #     Creates new cluster configuration object.
-    #     Override this fixture in your test class to provide a custom cluster configuration. (See TestInstall)
-    #     :rtype: new cluster configuration object
-    #     """
-    #     config = ClusterConfig()
-    #     self.update_parameterized(request, config)
+    @pytest.fixture
+    def new_day2_cluster_configuration(self, request: FixtureRequest) -> ClusterConfig:
+        """
+        Creates new cluster configuration object.
+        Override this fixture in your test class to provide a custom cluster configuration. (See TestInstall)
+        :rtype: new cluster configuration object
+        """
+        config = ClusterConfig()
+        self.update_parameterized(request, config)
 
-    #     return config
+        return config
 
     @pytest.fixture
     def new_infra_env_configuration(self, request: FixtureRequest) -> InfraEnvConfig:
@@ -245,6 +241,10 @@ class BaseTest:
             pass
         """
         yield utils.run_marked_fixture(new_cluster_configuration, "override_cluster_configuration", request)
+
+    @pytest.fixture
+    def day2_cluster_configuration(self, request: pytest.FixtureRequest, new_day2_cluster_configuration: Day2ClusterConfig) -> Day2ClusterConfig:
+        yield utils.run_marked_fixture(new_day2_cluster_configuration, "override_day2_cluster_configuration", request)
 
     @pytest.fixture
     def infra_env_configuration(
