@@ -310,7 +310,6 @@ class BaseTest:
     def day2_controller(
         self, day2_cluster_configuration: Day2ClusterConfig, day2_controller_configuration: BaseNodesConfig
     ) -> NodeController:
-        assert day2_cluster_configuration.platform == consts.Platforms.BARE_METAL
         return TerraformController(day2_controller_configuration, entity_config=day2_cluster_configuration)
 
     @pytest.fixture
