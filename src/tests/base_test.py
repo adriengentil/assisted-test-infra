@@ -168,6 +168,7 @@ class BaseTest:
         """
         yield utils.run_marked_fixture(prepared_controller_configuration, "override_controller_configuration", request)
 
+    @pytest.fixture
     def day2_controller_configuration(
         self, request: pytest.FixtureRequest, prepared_day2_controller_configuration: BaseNodesConfig
     ) -> BaseNodesConfig:
