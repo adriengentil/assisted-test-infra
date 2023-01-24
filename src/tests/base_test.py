@@ -474,6 +474,9 @@ class BaseTest:
         day2_nodes: Nodes,
     ):
         log.debug(f"--- SETUP --- Creating Day2 cluster for test: {request.node.name}\n")
+        log.debug(f"--- SETUP --- day2_cluster_configuration: {day2_cluster_configuration}\n")
+        log.debug(f"--- SETUP --- day2_nodes: {day2_nodes.controller._config}\n")
+
         day2_cluster = Day2Cluster(
             config=day2_cluster_configuration, cluster=cluster, infra_env_config=InfraEnvConfig(), day2_nodes=day2_nodes
         )

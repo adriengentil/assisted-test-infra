@@ -34,7 +34,7 @@ class Day2Cluster(BaseCluster):
         self._day1_api_vip_dnsname = None
 
         self._day2_nodes = day2_nodes
-        self._kubeconfig_path = utils.get_kubeconfig_path(self._config.day1_cluster_name)
+        self._kubeconfig_path = utils.get_kubeconfig_path(config.day1_cluster_name)
         self.name = config.cluster_name.get()
 
         super().__init__(self._day1_cluster.api_client, config, infra_env_config, self._day2_nodes)
