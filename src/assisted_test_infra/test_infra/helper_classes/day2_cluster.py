@@ -64,7 +64,7 @@ class Day2Cluster(BaseCluster):
         self._day1_base_cluster_domain = f"{self._day1_cluster.name}.{day1_cluster.base_dns_domain}"
         self._day1_api_vip_dnsname = f"api.{self._day1_base_cluster_domain}"
         self._config.day1_cluster_name = day1_cluster.name
-        params = {"openshift_version": self._config.openshift_version, "api_vip_dnsname": api_vip_dnsname}
+        params = {"openshift_version": self._config.openshift_version, "api_vip_dnsname": self._day1_api_vip_dnsname}
         cluster = self.api_client.create_day2_cluster(self.name, openshift_cluster_id, **params)
         self._config.cluster_id = cluster.id
 
