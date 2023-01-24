@@ -133,13 +133,22 @@ class BaseTest:
 
     @pytest.fixture
     def prepared_day2_controller_configuration(
-        self, new_day2_controller_configuration: BaseNodesConfig
+        self, new_day2_controller_configuration: BaseNodesConfig, day2_cluster_configuration: Day2ClusterConfig
     ) -> BaseNodesConfig:
         assert isinstance(new_day2_controller_configuration, TerraformConfig)
 
         # Configuring net asset which currently supported by libvirt terraform only
         net_asset = LibvirtNetworkAssets()
         new_day2_controller_configuration.net_asset = net_asset.get()
+
+        day1_api_vip = day2_cluster_configuration.day1_cluster_details.api_vip
+        day1_ingress_vip = day2_cluster_configuration.day1_cluster_details.day1_cluster.ingress_vip
+
+        new_day2_controller_configuration.set_value("api_vip", day1_api_vip)
+        new_day2_controller_configuration.set_value("ingress_vip", day1_ingress_vip)
+        new_day2_controller_configuration.set_value("master_count", 0)
+        new_day2_controller_configuration.set_value("worker_count", day2_cluster_configuration.day2_workers_count)
+        new_day2_controller_configuration.set_value("cluster_base_domain", day2_cluster_configuration.day1_base_cluster_domain)
 
         yield new_day2_controller_configuration
         net_asset.release_all()
@@ -199,7 +208,7 @@ class BaseTest:
         return config
 
     @pytest.fixture
-    def new_day2_cluster_configuration(self, request: FixtureRequest) -> Day2ClusterConfig:
+    def new_day2_cluster_configuration(self, request: FixtureRequest, cluster: Cluster) -> Day2ClusterConfig:
         """
         Creates new cluster configuration object.
         Override this fixture in your test class to provide a custom cluster configuration. (See TestInstall)
@@ -207,6 +216,12 @@ class BaseTest:
         """
         config = Day2ClusterConfig()
         self.update_parameterized(request, config)
+
+        # update configuration with day1 cluster
+        config.day1_cluster = cluster
+        config.day1_cluster_details = cluster.get_details()
+        config.day1_base_cluster_domain = f"{config.day1_cluster_details.name}.{config.day1_cluster_details.base_dns_domain}"
+        config.day1_api_vip_dnsname = f"api.{config.day1_base_cluster_domain}"
 
         return config
 

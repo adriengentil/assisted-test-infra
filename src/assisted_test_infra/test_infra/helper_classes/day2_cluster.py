@@ -25,16 +25,10 @@ class Day2Cluster(BaseCluster):
     _config: BaseDay2ClusterConfig
 
     def __init__(
-        self, config: BaseDay2ClusterConfig, infra_env_config: BaseInfraEnvConfig, cluster: Cluster, day2_nodes: Nodes
+        self, config: BaseDay2ClusterConfig, infra_env_config: BaseInfraEnvConfig, day2_nodes: Nodes
     ):
-        self._day1_cluster: Cluster = cluster
-        self._day1_api_vip = None
-        self._day1_ingress_vip = None
-        self._day1_base_cluster_domain = None
-        self._day1_api_vip_dnsname = None
-
         self._day2_nodes = day2_nodes
-        self._kubeconfig_path = utils.get_kubeconfig_path(config.day1_cluster_name)
+        self._kubeconfig_path = utils.get_kubeconfig_path(config.day1_cluster.name)
         self.name = config.cluster_name.get()
 
         super().__init__(self._day1_cluster.api_client, config, infra_env_config, self._day2_nodes)
@@ -57,15 +51,10 @@ class Day2Cluster(BaseCluster):
             self._day1_cluster.start_install_and_wait_for_installed()
 
         openshift_cluster_id = str(uuid.uuid4())
-        day1_cluster = self._day1_cluster.get_details()
+        params = {"openshift_version": self._config.openshift_version, "api_vip_dnsname": self._config.day1_api_vip_dnsname}
 
-        self._day1_api_vip = day1_cluster.api_vip
-        self._day1_ingress_vip = day1_cluster.ingress_vip
-        self._day1_base_cluster_domain = f"{self._day1_cluster.name}.{day1_cluster.base_dns_domain}"
-        self._day1_api_vip_dnsname = f"api.{self._day1_base_cluster_domain}"
-        self._config.day1_cluster_name = day1_cluster.name
-        params = {"openshift_version": self._config.openshift_version, "api_vip_dnsname": self._day1_api_vip_dnsname}
         cluster = self.api_client.create_day2_cluster(self.name, openshift_cluster_id, **params)
+
         self._config.cluster_id = cluster.id
 
         # self._config.cluster_name = ClusterName(
@@ -83,7 +72,7 @@ class Day2Cluster(BaseCluster):
 
         self.set_pull_secret(self._config.pull_secret)
         self.set_cluster_proxy()
-        self.config_etc_hosts(self._day1_api_vip, self._day1_api_vip_dnsname)
+        self.config_etc_hosts(self._config.day1_cluster_details.api_vip, self._config.day1_api_vip_dnsname)
 
         # self.nodes.controller.tf_folder = os.path.join(
         #     utils.TerraformControllerUtil.get_folder(self._day1_cluster.name), consts.Platforms.BARE_METAL
@@ -94,13 +83,6 @@ class Day2Cluster(BaseCluster):
         # static_network_config = None
         # if self._day1_cluster._infra_env_config.is_static_ip:
         #     static_network_config = self.nodes.controller.get_day2_static_network_data()
-        self.update_config(
-            api_vip=self._day1_api_vip,
-            ingress_vip=self._day1_ingress_vip,
-            worker_count=self._config.day2_workers_count,
-            master_count=0,
-            cluster_base_domain=self._day1_base_cluster_domain,
-        )
         log.debug(f"Day2Cluster.prepare_for_installation - controller configuration {self._day2_nodes.controller._config}\n")
         super(Day2Cluster, self).prepare_for_installation(
             is_static_ip=self._day1_cluster._infra_env_config.is_static_ip
