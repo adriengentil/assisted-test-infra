@@ -139,7 +139,7 @@ class BaseTest:
     def prepared_day2_controller_configuration(
         self, new_day2_controller_configuration: BaseNodesConfig
     ) -> BaseNodesConfig:
-        assert isinstance(new_controller_configuration, TerraformConfig)
+        assert isinstance(new_day2_controller_configuration, TerraformConfig)
 
         # Configuring net asset which currently supported by libvirt terraform only
         net_asset = LibvirtNetworkAssets()
