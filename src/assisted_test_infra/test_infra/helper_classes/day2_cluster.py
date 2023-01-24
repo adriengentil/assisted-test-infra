@@ -83,7 +83,7 @@ class Day2Cluster(BaseCluster):
 
         self.set_pull_secret(self._config.pull_secret)
         self.set_cluster_proxy()
-        self.config_etc_hosts(self._api_vip, self._api_vip_dnsname)
+        self.config_etc_hosts(self._day1_api_vip, self._day1_api_vip_dnsname)
 
         # self.nodes.controller.tf_folder = os.path.join(
         #     utils.TerraformControllerUtil.get_folder(self._day1_cluster.name), consts.Platforms.BARE_METAL
