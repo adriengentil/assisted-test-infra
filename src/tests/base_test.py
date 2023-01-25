@@ -208,7 +208,7 @@ class BaseTest:
         return config
 
     @pytest.fixture
-    def new_day2_cluster_configuration(self, request: FixtureRequest, cluster: Cluster) -> Day2ClusterConfig:
+    def new_day2_cluster_configuration(self, request: FixtureRequest, cluster: Cluster, triggers_enabled, triggers) -> Day2ClusterConfig:
         """
         Creates new cluster configuration object.
         Override this fixture in your test class to provide a custom cluster configuration. (See TestInstall)
@@ -216,6 +216,12 @@ class BaseTest:
         """
         config = Day2ClusterConfig()
         self.update_parameterized(request, config)
+
+        if triggers_enabled:
+            Trigger.trigger_configurations(
+                [config],
+                triggers,
+            )
 
         # update configuration with day1 cluster
         config.day1_cluster = cluster
@@ -295,7 +301,6 @@ class BaseTest:
         self,
         triggers_enabled,
         cluster_configuration,
-        day2_cluster_configuration,
         controller_configuration,
         infra_env_configuration,
         triggers,
@@ -303,7 +308,7 @@ class BaseTest:
 
         if triggers_enabled:
             Trigger.trigger_configurations(
-                [cluster_configuration, controller_configuration, infra_env_configuration, day2_cluster_configuration],
+                [cluster_configuration, controller_configuration, infra_env_configuration],
                 triggers,
             )
         yield
