@@ -31,7 +31,7 @@ class Day2Cluster(BaseCluster):
         self._kubeconfig_path = utils.get_kubeconfig_path(config.day1_cluster.name)
         self.name = config.cluster_name.get()
 
-        super().__init__(self._day1_cluster.api_client, config, infra_env_config, self._day2_nodes)
+        super().__init__(self.config.day1_cluster.api_client, config, infra_env_config, self._day2_nodes)
 
     def wait_until_hosts_are_discovered(self, allow_insufficient=False, nodes_count: int = None):
         statuses = [consts.NodesStatus.PENDING_FOR_INPUT, consts.NodesStatus.KNOWN]
