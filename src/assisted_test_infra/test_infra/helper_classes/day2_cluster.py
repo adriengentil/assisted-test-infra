@@ -68,7 +68,7 @@ class Day2Cluster(BaseCluster):
         return self._create()
 
     def prepare_for_installation(self):
-        self._config.day1_cluster_id = self._day1_cluster.id
+        self._config.day1_cluster_id = self._config.day1_cluster_details.id
 
         self.set_pull_secret(self._config.pull_secret)
         self.set_cluster_proxy()
@@ -87,7 +87,7 @@ class Day2Cluster(BaseCluster):
         #     static_network_config = self.nodes.controller.get_day2_static_network_data()
         log.debug(f"Day2Cluster.prepare_for_installation - controller configuration {self._day2_nodes.controller._config}\n")
         super(Day2Cluster, self).prepare_for_installation(
-            is_static_ip=self._day1_cluster._infra_env_config.is_static_ip
+            is_static_ip=self._config.day1_cluster._infra_env_config.is_static_ip
         )
         self.nodes.wait_for_networking()
 
