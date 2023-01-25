@@ -31,7 +31,7 @@ class Day2Cluster(BaseCluster):
         self._kubeconfig_path = utils.get_kubeconfig_path(config.day1_cluster.name)
         self.name = config.cluster_name.get()
 
-        super().__init__(self.config.day1_cluster.api_client, config, infra_env_config, self._day2_nodes)
+        super().__init__(config.day1_cluster.api_client, config, infra_env_config, self._day2_nodes)
 
     def wait_until_hosts_are_discovered(self, allow_insufficient=False, nodes_count: int = None):
         statuses = [consts.NodesStatus.PENDING_FOR_INPUT, consts.NodesStatus.KNOWN]
@@ -46,9 +46,9 @@ class Day2Cluster(BaseCluster):
         )
 
     def _create(self) -> str:
-        if not self._day1_cluster.is_installed:
-            self._day1_cluster.prepare_for_installation()
-            self._day1_cluster.start_install_and_wait_for_installed()
+        if not self._config.day1_cluster.is_installed:
+            self._config.day1_cluster.prepare_for_installation()
+            self._config.day1_cluster.start_install_and_wait_for_installed()
 
         openshift_cluster_id = str(uuid.uuid4())
         params = {"openshift_version": self._config.openshift_version, "api_vip_dnsname": self._config.day1_api_vip_dnsname}
@@ -72,6 +72,8 @@ class Day2Cluster(BaseCluster):
 
         self.set_pull_secret(self._config.pull_secret)
         self.set_cluster_proxy()
+
+        log.debug(f"Day2Cluster.prepare_for_installation - self._config.day1_api_vip_dnsname[{self._config.day1_api_vip_dnsname}] / self._config.day1_cluster_details.api_vip_dns_name[{self._config.day1_cluster_details.api_vip_dns_name}] \n")
         self.config_etc_hosts(self._config.day1_cluster_details.api_vip, self._config.day1_api_vip_dnsname)
 
         # self.nodes.controller.tf_folder = os.path.join(
