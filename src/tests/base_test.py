@@ -484,7 +484,6 @@ class BaseTest:
     def day2_cluster(
         self,
         request: FixtureRequest,
-        cluster: Cluster,
         day2_cluster_configuration: Day2ClusterConfig,
         day2_nodes: Nodes,
     ):
@@ -493,7 +492,7 @@ class BaseTest:
         log.debug(f"--- SETUP --- day2_nodes: {day2_nodes.controller._config}\n")
 
         day2_cluster = Day2Cluster(
-            config=day2_cluster_configuration, cluster=cluster, infra_env_config=InfraEnvConfig(), day2_nodes=day2_nodes
+            config=day2_cluster_configuration, infra_env_config=InfraEnvConfig(), day2_nodes=day2_nodes
         )
 
         yield day2_cluster
