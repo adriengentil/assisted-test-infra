@@ -142,7 +142,7 @@ class BaseTest:
         new_day2_controller_configuration.net_asset = net_asset.get()
 
         day1_api_vip = day2_cluster_configuration.day1_cluster_details.api_vip
-        day1_ingress_vip = day2_cluster_configuration.day1_cluster_details.day1_cluster.ingress_vip
+        day1_ingress_vip = day2_cluster_configuration.day1_cluster_details.ingress_vip
 
         new_day2_controller_configuration.set_value("api_vip", day1_api_vip)
         new_day2_controller_configuration.set_value("ingress_vip", day1_ingress_vip)
