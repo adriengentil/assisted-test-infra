@@ -260,7 +260,7 @@ class Day2Cluster(BaseCluster):
         # )
 
         ocp_ready_nodes = self.get_ocp_cluster_ready_nodes_num()
-        self._install_day2_cluster(self._config.day2_workers_count, consts.NodesStatus.DAY2_INSTALLED)
+        self._install_day2_cluster()
         self.wait_nodes_to_be_in_ocp(ocp_ready_nodes)
 
     def wait_nodes_to_be_in_ocp(self, ocp_ready_nodes):
@@ -294,7 +294,7 @@ class Day2Cluster(BaseCluster):
         res = subprocess.check_output(f"oc --kubeconfig={kubeconfig} get csr --output=json", shell=True)
         return json.loads(res)["items"]
 
-    def _install_day2_cluster(self, installed_status: str):
+    def _install_day2_cluster(self):
         # Start day2 nodes installation
         log.info(f"Start installing all known nodes in the cluster {self.id}")
         hosts = self.api_client.get_cluster_hosts(self.id)
@@ -311,7 +311,7 @@ class Day2Cluster(BaseCluster):
             client=self.api_client,
             cluster_id=self.id,
             nodes_count=self._config.day2_workers_count,
-            statuses=[installed_status],
+            statuses=[consts.NodesStatus.DAY2_INSTALLED],
             interval=30,
         )
 
