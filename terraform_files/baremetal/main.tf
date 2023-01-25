@@ -159,7 +159,7 @@ module "workers" {
 # the count directive to include/exclude elements
 
 locals {
-  cluster_base_domain = var.cluster_base_domain == "" ? "${var.cluster_name}.${var.cluster_domain}" : var.cluster_base_domain
+  base_cluster_domain = var.base_cluster_domain == "" ? "${var.cluster_name}.${var.cluster_domain}" : var.base_cluster_domain
 }
 
 data "libvirt_network_dns_host_template" "api" {

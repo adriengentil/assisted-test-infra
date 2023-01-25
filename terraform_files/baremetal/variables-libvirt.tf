@@ -256,8 +256,8 @@ variable "libvirt_dns_records" {
   default     = {}
 }
 
-variable "cluster_base_domain" {
+variable "base_cluster_domain" {
   type        = string
-  description = "Set cluster base domain. Defaults to <cluster_name>.<cluster_domain> if left unset."
+  description = "Set base cluster domain. Defaults to <cluster_name>.<cluster_domain> if left unset."
   default     = ""
 }
