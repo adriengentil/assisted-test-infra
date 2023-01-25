@@ -232,35 +232,35 @@ class Day2Cluster(BaseCluster):
     @JunitTestCase()
     def start_install_and_wait_for_installed(self):
         # Running twice as a workaround for an issue with terraform not spawning a new node on first apply.
-        for _ in range(2):
-            with utils.file_lock_context():
-                res = utils.run_command(
-                    f"make _apply_terraform CLUSTER_NAME={self._day1_cluster.name} "
-                    f"PLATFORM={consts.Platforms.BARE_METAL}"
-                )
-                log.info(res[0])
-        time.sleep(5)
+        # for _ in range(2):
+        #     with utils.file_lock_context():
+        #         res = utils.run_command(
+        #             f"make _apply_terraform CLUSTER_NAME={self._day1_cluster.name} "
+        #             f"PLATFORM={consts.Platforms.BARE_METAL}"
+        #         )
+        #         log.info(res[0])
+        # time.sleep(5)
 
-        num_nodes_to_wait = self._config.day2_workers_count
-        installed_status = consts.NodesStatus.DAY2_INSTALLED
+        # num_nodes_to_wait = self._config.day2_workers_count
+        # installed_status = consts.NodesStatus.DAY2_INSTALLED
 
-        # make sure we use the same network as defined in the terraform stack
-        tfvars = utils.get_tfvars(self.nodes.controller.tf_folder)
-        self.nodes.wait_till_nodes_are_ready(network_name=tfvars["libvirt_network_name"])
+        # # make sure we use the same network as defined in the terraform stack
+        # tfvars = utils.get_tfvars(self.nodes.controller.tf_folder)
+        # self.nodes.wait_till_nodes_are_ready(network_name=tfvars["libvirt_network_name"])
 
-        self.wait_for_day2_nodes()
-        self.set_nodes_hostnames_if_needed()
+        # self.wait_for_day2_nodes()
+        # self.set_nodes_hostnames_if_needed()
 
-        wait_till_all_hosts_are_in_status(
-            client=self.api_client,
-            cluster_id=self._config.cluster_id,
-            nodes_count=self._config.day2_workers_count,
-            statuses=[consts.NodesStatus.KNOWN],
-            interval=30,
-        )
+        # wait_till_all_hosts_are_in_status(
+        #     client=self.api_client,
+        #     cluster_id=self._config.cluster_id,
+        #     nodes_count=self._config.day2_workers_count,
+        #     statuses=[consts.NodesStatus.KNOWN],
+        #     interval=30,
+        # )
 
         ocp_ready_nodes = self.get_ocp_cluster_ready_nodes_num()
-        self._install_day2_cluster(num_nodes_to_wait, installed_status)
+        self._install_day2_cluster(self._config.day2_workers_count, consts.NodesStatus.DAY2_INSTALLED)
         self.wait_nodes_to_be_in_ocp(ocp_ready_nodes)
 
     def wait_nodes_to_be_in_ocp(self, ocp_ready_nodes):
@@ -294,7 +294,7 @@ class Day2Cluster(BaseCluster):
         res = subprocess.check_output(f"oc --kubeconfig={kubeconfig} get csr --output=json", shell=True)
         return json.loads(res)["items"]
 
-    def _install_day2_cluster(self, num_nodes_to_wait: int, installed_status: str):
+    def _install_day2_cluster(self, installed_status: str):
         # Start day2 nodes installation
         log.info(f"Start installing all known nodes in the cluster {self.id}")
         hosts = self.api_client.get_cluster_hosts(self.id)
@@ -310,7 +310,7 @@ class Day2Cluster(BaseCluster):
         wait_till_all_hosts_are_in_status(
             client=self.api_client,
             cluster_id=self.id,
-            nodes_count=num_nodes_to_wait,
+            nodes_count=self._config.day2_workers_count,
             statuses=[installed_status],
             interval=30,
         )
