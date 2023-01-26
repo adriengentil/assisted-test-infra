@@ -801,26 +801,6 @@ class Cluster(BaseCluster):
             timeout=timeout,
         )
 
-    def _set_hostnames_and_roles(self):
-        cluster_id = self.id
-        hosts = self.to_cluster_hosts(self.api_client.get_cluster_hosts(cluster_id))
-        nodes = self.nodes.get_nodes(refresh=True)
-
-        for host in hosts:
-            if host.has_hostname():
-                continue
-
-            name = self.find_matching_node_name(host, nodes)
-            assert name is not None, (
-                f"Failed to find matching node for host with mac address {host.macs()}"
-                f" nodes: {[(n.name, n.ips, n.macs) for n in nodes]}"
-            )
-            if self.nodes.nodes_count == 1:
-                role = None
-            else:
-                role = consts.NodeRoles.MASTER if consts.NodeRoles.MASTER in name else consts.NodeRoles.WORKER
-            self._infra_env.update_host(host_id=host.get_id(), host_role=role, host_name=name)
-
     def _ha_not_none(self):
         return (
             self._high_availability_mode != consts.HighAvailabilityMode.NONE
@@ -833,7 +813,7 @@ class Cluster(BaseCluster):
         assert self.get_details().platform.type in self.api_client.get_cluster_supported_platforms(self.id)
 
         self.nodes.wait_for_networking()
-        self._set_hostnames_and_roles()
+        self.set_hostnames_and_roles()
         if self._high_availability_mode != consts.HighAvailabilityMode.NONE:
             self.set_host_roles(len(self.nodes.get_masters()), len(self.nodes.get_workers()))
 
@@ -1031,10 +1011,6 @@ class Cluster(BaseCluster):
     def get_cluster_hosts(cluster: models.cluster.Cluster) -> List[ClusterHost]:
         return [ClusterHost(h) for h in cluster.hosts]
 
-    @staticmethod
-    def to_cluster_hosts(hosts: List[Dict[str, Any]]) -> List[ClusterHost]:
-        return [ClusterHost(models.Host(**h)) for h in hosts]
-
     def get_cluster_cidrs(self, hosts: List[ClusterHost]) -> Set[str]:
         cidrs = set()
 
@@ -1097,23 +1073,6 @@ class Cluster(BaseCluster):
             return [disk for disk in disks]
         else:
             return [disk for disk in disks if filter(disk)]
-
-    def find_matching_node_name(self, host: ClusterHost, nodes: List[Node]) -> Union[str, None]:
-        # Looking for node matches the given host by its mac address (which is unique)
-        for node in nodes:
-            for mac in node.macs:
-                if mac.lower() in host.macs():
-                    return node.name
-
-        # IPv6 static ips
-        if self._infra_env_config.is_static_ip:
-            mappings = static_network.get_name_to_mac_addresses_mapping(self.nodes.controller.tf_folder)
-            for mac in host.macs():
-                for name, macs in mappings.items():
-                    if mac in macs:
-                        return name
-
-        return None
 
     def wait_and_kill_installer(self, host):
         # Wait for specific host to be in installing in progress

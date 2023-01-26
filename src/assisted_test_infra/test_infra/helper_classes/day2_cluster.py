@@ -8,13 +8,13 @@ from typing import Any
 
 import waiting
 from junit_report import JunitTestCase
-from assisted_test_infra.test_infra.helper_classes.nodes import Nodes
 
 import consts
 from assisted_test_infra.test_infra import BaseInfraEnvConfig, ClusterName, utils
 from assisted_test_infra.test_infra.helper_classes.base_cluster import BaseCluster
 from assisted_test_infra.test_infra.helper_classes.cluster import Cluster
 from assisted_test_infra.test_infra.helper_classes.config.base_day2_cluster_config import BaseDay2ClusterConfig
+from assisted_test_infra.test_infra.helper_classes.nodes import Nodes
 from assisted_test_infra.test_infra.tools import static_network
 from assisted_test_infra.test_infra.utils.waiting import wait_till_all_hosts_are_in_status
 from service_client import log
@@ -24,12 +24,14 @@ from service_client.assisted_service_api import InventoryClient
 class Day2Cluster(BaseCluster):
     _config: BaseDay2ClusterConfig
 
-    def __init__(
-        self, config: BaseDay2ClusterConfig, infra_env_config: BaseInfraEnvConfig, day2_nodes: Nodes
-    ):
+    def __init__(self, config: BaseDay2ClusterConfig, infra_env_config: BaseInfraEnvConfig, day2_nodes: Nodes):
         self._day2_nodes = day2_nodes
         self._kubeconfig_path = utils.get_kubeconfig_path(config.day1_cluster.name)
         self.name = config.cluster_name.get()
+
+        log.debug(
+            f"Day2Cluster.__init__ - infra_env_config[{infra_env_config}] / self._day1_cluster._infra_env_config[{config.day1_cluster._infra_env_config}] \n"
+        )
 
         super().__init__(config.day1_cluster.api_client, config, infra_env_config, self._day2_nodes)
 
@@ -51,7 +53,10 @@ class Day2Cluster(BaseCluster):
             self._config.day1_cluster.start_install_and_wait_for_installed()
 
         openshift_cluster_id = str(uuid.uuid4())
-        params = {"openshift_version": self._config.openshift_version, "api_vip_dnsname": self._config.day1_api_vip_dnsname}
+        params = {
+            "openshift_version": self._config.openshift_version,
+            "api_vip_dnsname": self._config.day1_api_vip_dnsname,
+        }
 
         cluster = self.api_client.create_day2_cluster(self.name, openshift_cluster_id, **params)
 
@@ -68,12 +73,16 @@ class Day2Cluster(BaseCluster):
         return self._create()
 
     def prepare_for_installation(self):
+        """Prepare the day2 worker nodes. When this method finishes, the hosts are in 'known' status."""
+
         self._config.day1_cluster_id = self._config.day1_cluster_details.id
 
         self.set_pull_secret(self._config.pull_secret)
         self.set_cluster_proxy()
 
-        log.debug(f"Day2Cluster.prepare_for_installation - self._config.day1_api_vip_dnsname[{self._config.day1_api_vip_dnsname}] / self._config.day1_cluster_details.api_vip_dns_name[{self._config.day1_cluster_details.api_vip_dns_name}] \n")
+        log.debug(
+            f"Day2Cluster.prepare_for_installation - self._config.day1_api_vip_dnsname[{self._config.day1_api_vip_dnsname}] / self._config.day1_cluster_details.api_vip_dns_name[{self._config.day1_cluster_details.api_vip_dns_name}] \n"
+        )
         self.config_etc_hosts(self._config.day1_cluster_details.api_vip, self._config.day1_api_vip_dnsname)
 
         # self.nodes.controller.tf_folder = os.path.join(
@@ -85,11 +94,22 @@ class Day2Cluster(BaseCluster):
         # static_network_config = None
         # if self._day1_cluster._infra_env_config.is_static_ip:
         #     static_network_config = self.nodes.controller.get_day2_static_network_data()
-        log.debug(f"Day2Cluster.prepare_for_installation - controller configuration {self._day2_nodes.controller._config}\n")
+        log.debug(
+            f"Day2Cluster.prepare_for_installation - controller configuration {self._day2_nodes.controller._config}\n"
+        )
         super(Day2Cluster, self).prepare_for_installation(
             is_static_ip=self._config.day1_cluster._infra_env_config.is_static_ip
         )
         self.nodes.wait_for_networking()
+        self.set_hostnames_and_roles()
+
+        wait_till_all_hosts_are_in_status(
+            client=self.api_client,
+            cluster_id=self._config.cluster_id,
+            nodes_count=self._config.day2_workers_count,
+            statuses=[consts.NodesStatus.KNOWN],
+            interval=30,
+        )
 
         # tfvars = utils.get_tfvars(self.nodes.controller.tf_folder)
         # self.download_image(
@@ -191,16 +211,16 @@ class Day2Cluster(BaseCluster):
             waiting_for="Nodes to be registered in inventory service",
         )
 
-    def set_nodes_hostnames_if_needed(self):
-        if self._config.is_ipv6 or self._day1_cluster._infra_env_config.is_static_ip:
-            tf_state = self.nodes.controller.tf.get_state()
-            network_name = self.nodes.controller.network_name
-            libvirt_nodes = utils.extract_nodes_from_tf_state(tf_state, network_name, consts.NodeRoles.WORKER)
-            log.info(
-                f"Set hostnames of day2 cluster {self.id} in case of static network configuration or "
-                "to work around libvirt for Terrafrom not setting hostnames of IPv6 hosts",
-            )
-            self.update_hosts(self.api_client, self.id, libvirt_nodes)
+    # def set_nodes_hostnames_if_needed(self):
+    #     if self._config.is_ipv6 or self._day1_cluster._infra_env_config.is_static_ip:
+    #         tf_state = self.nodes.controller.tf.get_state()
+    #         network_name = self.nodes.controller.network_name
+    #         libvirt_nodes = utils.extract_nodes_from_tf_state(tf_state, network_name, consts.NodeRoles.WORKER)
+    #         log.info(
+    #             f"Set hostnames of day2 cluster {self.id} in case of static network configuration or "
+    #             "to work around libvirt for Terrafrom not setting hostnames of IPv6 hosts",
+    #         )
+    #         self.update_hosts(self.api_client, self.id, libvirt_nodes)
 
     @classmethod
     def update_hosts(cls, client: InventoryClient, cluster_id: str, libvirt_nodes: dict):
@@ -249,15 +269,7 @@ class Day2Cluster(BaseCluster):
         # self.nodes.wait_till_nodes_are_ready(network_name=tfvars["libvirt_network_name"])
 
         # self.wait_for_day2_nodes()
-        # self.set_nodes_hostnames_if_needed()
-
-        # wait_till_all_hosts_are_in_status(
-        #     client=self.api_client,
-        #     cluster_id=self._config.cluster_id,
-        #     nodes_count=self._config.day2_workers_count,
-        #     statuses=[consts.NodesStatus.KNOWN],
-        #     interval=30,
-        # )
+        self.set_hostnames_and_roles()
 
         ocp_ready_nodes = self.get_ocp_cluster_ready_nodes_num()
         self._install_day2_cluster()

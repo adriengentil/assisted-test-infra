@@ -1,13 +1,17 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from assisted_service_client import models
 from junit_report import JunitTestCase
 
+import consts
 from assisted_test_infra.test_infra import BaseClusterConfig, BaseInfraEnvConfig, Nodes
+from assisted_test_infra.test_infra.controllers.node_controllers import Node
+from assisted_test_infra.test_infra.helper_classes.cluster_host import ClusterHost
 from assisted_test_infra.test_infra.helper_classes.entity import Entity
 from assisted_test_infra.test_infra.helper_classes.infra_env import InfraEnv
+from assisted_test_infra.test_infra.tools import static_network
 from service_client import InventoryClient, log
 
 
@@ -103,3 +107,44 @@ class BaseCluster(Entity, ABC):
 
     def get_iso_download_path(self, iso_download_path: str = None):
         return iso_download_path or self._infra_env_config.iso_download_path
+
+    def set_hostnames_and_roles(self):
+        cluster_id = self.id
+        hosts = self.to_cluster_hosts(self.api_client.get_cluster_hosts(cluster_id))
+        nodes = self.nodes.get_nodes(refresh=True)
+
+        for host in hosts:
+            if host.has_hostname():
+                continue
+
+            name = self.find_matching_node_name(host, nodes)
+            assert name is not None, (
+                f"Failed to find matching node for host with mac address {host.macs()}"
+                f" nodes: {[(n.name, n.ips, n.macs) for n in nodes]}"
+            )
+            if self.nodes.nodes_count == 1:
+                role = None
+            else:
+                role = consts.NodeRoles.MASTER if consts.NodeRoles.MASTER in name else consts.NodeRoles.WORKER
+            self._infra_env.update_host(host_id=host.get_id(), host_role=role, host_name=name)
+
+    @staticmethod
+    def to_cluster_hosts(hosts: list[dict[str, Any]]) -> list[ClusterHost]:
+        return [ClusterHost(models.Host(**h)) for h in hosts]
+
+    def find_matching_node_name(self, host: ClusterHost, nodes: list[Node]) -> Union[str, None]:
+        # Looking for node matches the given host by its mac address (which is unique)
+        for node in nodes:
+            for mac in node.macs:
+                if mac.lower() in host.macs():
+                    return node.name
+
+        # IPv6 static ips
+        if self._infra_env_config.is_static_ip:
+            mappings = static_network.get_name_to_mac_addresses_mapping(self.nodes.controller.tf_folder)
+            for mac in host.macs():
+                for name, macs in mappings.items():
+                    if mac in macs:
+                        return name
+
+        return None
