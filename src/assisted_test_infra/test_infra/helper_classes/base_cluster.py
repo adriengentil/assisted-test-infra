@@ -148,3 +148,16 @@ class BaseCluster(Entity, ABC):
                         return name
 
         return None
+
+    @JunitTestCase()
+    def wait_until_hosts_are_discovered(self, allow_insufficient=False, nodes_count: int = None):
+        statuses = [consts.NodesStatus.PENDING_FOR_INPUT, consts.NodesStatus.KNOWN]
+        if allow_insufficient:
+            statuses.append(consts.NodesStatus.INSUFFICIENT)
+        wait_till_all_hosts_are_in_status(
+            client=self.api_client,
+            cluster_id=self.id,
+            nodes_count=nodes_count or self.nodes.nodes_count,
+            statuses=statuses,
+            timeout=consts.NODES_REGISTERED_TIMEOUT,
+        )

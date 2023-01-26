@@ -3,7 +3,7 @@ import random
 import re
 import time
 from collections import Counter
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import List, Optional, Set
 
 import waiting
 import yaml
@@ -15,12 +15,11 @@ from netaddr import IPAddress, IPNetwork
 import consts
 from assisted_test_infra.test_infra import BaseClusterConfig, BaseInfraEnvConfig, ClusterName, exceptions, utils
 from assisted_test_infra.test_infra.controllers.load_balancer_controller import LoadBalancerController
-from assisted_test_infra.test_infra.controllers.node_controllers import Node
 from assisted_test_infra.test_infra.helper_classes.base_cluster import BaseCluster
 from assisted_test_infra.test_infra.helper_classes.cluster_host import ClusterHost
 from assisted_test_infra.test_infra.helper_classes.infra_env import InfraEnv
 from assisted_test_infra.test_infra.helper_classes.nodes import Nodes
-from assisted_test_infra.test_infra.tools import static_network, terraform_utils
+from assisted_test_infra.test_infra.tools import terraform_utils
 from assisted_test_infra.test_infra.utils import logs_utils, network_utils, operators_utils
 from assisted_test_infra.test_infra.utils.waiting import wait_till_all_hosts_are_in_status
 from service_client import InventoryClient, log
@@ -206,19 +205,6 @@ class Cluster(BaseCluster):
             cluster_id=self.id,
             nodes_count=nodes_count or self.nodes.nodes_count,
             statuses=statuses,
-        )
-
-    @JunitTestCase()
-    def wait_until_hosts_are_discovered(self, allow_insufficient=False, nodes_count: int = None):
-        statuses = [consts.NodesStatus.PENDING_FOR_INPUT, consts.NodesStatus.KNOWN]
-        if allow_insufficient:
-            statuses.append(consts.NodesStatus.INSUFFICIENT)
-        wait_till_all_hosts_are_in_status(
-            client=self.api_client,
-            cluster_id=self.id,
-            nodes_count=nodes_count or self.nodes.nodes_count,
-            statuses=statuses,
-            timeout=consts.NODES_REGISTERED_TIMEOUT,
         )
 
     def _get_matching_hosts(self, host_type, count):
@@ -410,7 +396,9 @@ class Cluster(BaseCluster):
 
         extra_vars = {}
         if vip_dhcp_allocation is None:
-            extra_vars["vip_dhcp_allocation"] = self._config.vip_dhcp_allocation if not None else False
+            extra_vars["vip_dhcp_allocation"] = (
+                self._config.vip_dhcp_allocation if self._config.vip_dhcp_allocation else False
+            )
         else:
             extra_vars["vip_dhcp_allocation"] = vip_dhcp_allocation
 
