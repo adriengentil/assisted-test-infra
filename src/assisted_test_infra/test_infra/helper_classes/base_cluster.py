@@ -12,6 +12,7 @@ from assisted_test_infra.test_infra.helper_classes.cluster_host import ClusterHo
 from assisted_test_infra.test_infra.helper_classes.entity import Entity
 from assisted_test_infra.test_infra.helper_classes.infra_env import InfraEnv
 from assisted_test_infra.test_infra.tools import static_network
+from assisted_test_infra.test_infra.utils.waiting import wait_till_all_hosts_are_in_status
 from service_client import InventoryClient, log
 
 
