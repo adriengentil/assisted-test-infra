@@ -233,6 +233,10 @@ class BaseTest:
         config.day1_base_cluster_domain = f"{config.day1_cluster_details.name}.{config.day1_cluster_details.base_dns_domain}"
         config.day1_api_vip_dnsname = f"api.{config.day1_base_cluster_domain}"
 
+        # cluster_id may come already set when CLUSTER_ID environment variable is set
+        # we want instead to create a new day2 cluster out of a new or existing day1 cluster
+        config.cluster_id = None
+
         return config
 
     @pytest.fixture
