@@ -210,9 +210,9 @@ class BaseTest:
     @pytest.fixture
     def new_day2_cluster_configuration(self, request: FixtureRequest, cluster: Cluster, triggers_enabled, triggers) -> Day2ClusterConfig:
         """
-        Creates new cluster configuration object.
+        Creates new day2 cluster configuration object.
         Override this fixture in your test class to provide a custom cluster configuration. (See TestInstall)
-        :rtype: new cluster configuration object
+        :rtype: new day2 cluster configuration object
         """
         config = Day2ClusterConfig()
         self.update_parameterized(request, config)
@@ -223,7 +223,11 @@ class BaseTest:
                 triggers,
             )
 
-        # update configuration with day1 cluster
+        if not cluster.is_installed:
+            cluster.prepare_for_installation()
+            cluster.start_install_and_wait_for_installed()
+
+        # reference day1 cluster in day2 configuration
         config.day1_cluster = cluster
         config.day1_cluster_details = cluster.get_details()
         config.day1_base_cluster_domain = f"{config.day1_cluster_details.name}.{config.day1_cluster_details.base_dns_domain}"

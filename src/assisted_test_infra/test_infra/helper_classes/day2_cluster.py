@@ -30,10 +30,6 @@ class Day2Cluster(BaseCluster):
         super().__init__(config.day1_cluster.api_client, config, infra_env_config, self._day2_nodes)
 
     def _create(self) -> str:
-        if not self._config.day1_cluster.is_installed:
-            self._config.day1_cluster.prepare_for_installation()
-            self._config.day1_cluster.start_install_and_wait_for_installed()
-
         openshift_cluster_id = str(uuid.uuid4())
         params = {
             "openshift_version": self._config.openshift_version,
@@ -46,7 +42,7 @@ class Day2Cluster(BaseCluster):
         return cluster.id
 
     def update_existing(self) -> str:
-        return self._create()
+        raise NotImplementedError("Creating Day2Cluster object from an existing cluster is not implemented.")
 
     def prepare_for_installation(self):
         """Prepare the day2 worker nodes. When this method finishes, the hosts are in 'known' status."""
