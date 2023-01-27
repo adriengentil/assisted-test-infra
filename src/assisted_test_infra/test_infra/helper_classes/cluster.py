@@ -708,6 +708,11 @@ class Cluster(BaseCluster):
             client=self.api_client, cluster_id=self.id, statuses=[consts.ClusterStatus.FINALIZING]
         )
 
+    def is_installing(self):
+        return utils.is_cluster_in_status(
+            client=self.api_client, cluster_id=self.id, statuses=[consts.ClusterStatus.INSTALLING]
+        )
+
     def reset_install(self):
         self.api_client.reset_cluster_install(cluster_id=self.id)
 

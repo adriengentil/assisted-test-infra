@@ -292,7 +292,7 @@ class TerraformController(LibvirtController):
 
     def _try_to_delete_nodes(self):
         log.info("Start running terraform delete")
-        self.tf.destroy()
+        self.tf.destroy(force=False)
 
     def destroy_all_nodes(self, delete_tf_folder=False):
         """Runs terraform destroy and then cleans it with virsh cleanup to delete

@@ -518,10 +518,6 @@ class BaseTest:
 
         yield day2_cluster
 
-        if self._is_test_failed(request) and global_variables.test_teardown and day2_cluster.is_installing():
-            log.info(f"--- TEARDOWN --- Cancelling installation {request.node.name}\n")
-            day2_cluster.cancel_install()
-
         if global_variables.test_teardown:
             with SuppressAndLog(ApiException):
                 day2_cluster.deregister_infraenv()
@@ -529,6 +525,14 @@ class BaseTest:
             with suppress(ApiException):
                 log.info(f"--- TEARDOWN --- deleting created day2 cluster {day2_cluster.id}\n")
                 day2_cluster.delete()
+
+            with suppress(ApiException):
+                log.info(f"--- TEARDOWN --- deleting day2 VMs {day2_cluster.id}\n")
+                day2_nodes.destroy_all_nodes()
+
+            with suppress(ApiException):
+                log.info(f"--- TEARDOWN --- deleting iso file from: {day2_cluster_configuration.iso_download_path}\n")
+                Path(day2_cluster_configuration.iso_download_path).unlink(missing_ok=True)
 
     @pytest.fixture
     @JunitFixtureTestCase()

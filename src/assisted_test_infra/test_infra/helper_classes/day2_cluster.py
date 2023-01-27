@@ -19,7 +19,13 @@ from service_client.assisted_service_api import InventoryClient
 class Day2Cluster(BaseCluster):
     _config: BaseDay2ClusterConfig
 
-    def __init__(self, api_client: InventoryClient, config: BaseDay2ClusterConfig, infra_env_config: BaseInfraEnvConfig, day2_nodes: Nodes):
+    def __init__(
+        self,
+        api_client: InventoryClient,
+        config: BaseDay2ClusterConfig,
+        infra_env_config: BaseInfraEnvConfig,
+        day2_nodes: Nodes,
+    ):
         self._kubeconfig_path = utils.get_kubeconfig_path(config.day1_cluster.name)
         self.name = config.cluster_name.get()
 
