@@ -6,7 +6,7 @@ from assisted_service_client import models
 from junit_report import JunitTestCase
 
 import consts
-from assisted_test_infra.test_infra import BaseClusterConfig, BaseInfraEnvConfig, Nodes
+from assisted_test_infra.test_infra import BaseClusterConfig, BaseInfraEnvConfig, Nodes, utils
 from assisted_test_infra.test_infra.controllers.node_controllers import Node
 from assisted_test_infra.test_infra.helper_classes.cluster_host import ClusterHost
 from assisted_test_infra.test_infra.helper_classes.entity import Entity
@@ -42,6 +42,25 @@ class BaseCluster(Entity, ABC):
 
     def get_details(self) -> Union[models.infra_env.InfraEnv, models.cluster.Cluster]:
         return self.api_client.cluster_get(self.id)
+
+    def delete(self):
+        self.deregister_infraenv()
+        if self.id:
+            self.api_client.delete_cluster(self.id)
+            self._config.cluster_id = None
+
+    def deregister_infraenv(self):
+        if self._infra_env:
+            self._infra_env.deregister()
+        self._infra_env = None
+
+    def cancel_install(self):
+        self.api_client.cancel_cluster_install(cluster_id=self.id)
+
+    def is_installing(self):
+        return utils.is_cluster_in_status(
+            client=self.api_client, cluster_id=self.id, statuses=[consts.ClusterStatus.INSTALLING]
+        )
 
     @abstractmethod
     def start_install_and_wait_for_installed(self, **kwargs):

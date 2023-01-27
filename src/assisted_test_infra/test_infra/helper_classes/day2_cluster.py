@@ -13,21 +13,17 @@ from assisted_test_infra.test_infra.helper_classes.config.base_day2_cluster_conf
 from assisted_test_infra.test_infra.helper_classes.nodes import Nodes
 from assisted_test_infra.test_infra.utils.waiting import wait_till_all_hosts_are_in_status
 from service_client import log
+from service_client.assisted_service_api import InventoryClient
 
 
 class Day2Cluster(BaseCluster):
     _config: BaseDay2ClusterConfig
 
-    def __init__(self, config: BaseDay2ClusterConfig, infra_env_config: BaseInfraEnvConfig, day2_nodes: Nodes):
-        self._day2_nodes = day2_nodes
+    def __init__(self, api_client: InventoryClient, config: BaseDay2ClusterConfig, infra_env_config: BaseInfraEnvConfig, day2_nodes: Nodes):
         self._kubeconfig_path = utils.get_kubeconfig_path(config.day1_cluster.name)
         self.name = config.cluster_name.get()
 
-        log.debug(
-            f"Day2Cluster.__init__ - infra_env_config[{infra_env_config}] / self._day1_cluster._infra_env_config[{config.day1_cluster._infra_env_config}] \n"
-        )
-
-        super().__init__(config.day1_cluster.api_client, config, infra_env_config, self._day2_nodes)
+        super().__init__(api_client, config, infra_env_config, day2_nodes)
 
     def _create(self) -> str:
         openshift_cluster_id = str(uuid.uuid4())

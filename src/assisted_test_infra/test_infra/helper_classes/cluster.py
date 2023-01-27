@@ -137,17 +137,6 @@ class Cluster(BaseCluster):
     def is_sno(self):
         return self.nodes.nodes_count == 1
 
-    def delete(self):
-        self.deregister_infraenv()
-        if self.id:
-            self.api_client.delete_cluster(self.id)
-            self._config.cluster_id = None
-
-    def deregister_infraenv(self):
-        if self._infra_env:
-            self._infra_env.deregister()
-        self._infra_env = None
-
     def get_cluster_name(self):
         return self.get_details().name
 
@@ -632,9 +621,6 @@ class Cluster(BaseCluster):
         log.info(f"Going to delete host: {host_id} in cluster: {self.id}")
         self._infra_env.delete_host(host_id=host_id)
 
-    def cancel_install(self):
-        self.api_client.cancel_cluster_install(cluster_id=self.id)
-
     def get_bootstrap_hostname(self):
         hosts = self.get_hosts_by_role(consts.NodeRoles.MASTER)
         for host in hosts:
@@ -720,11 +706,6 @@ class Cluster(BaseCluster):
     def is_finalizing(self):
         return utils.is_cluster_in_status(
             client=self.api_client, cluster_id=self.id, statuses=[consts.ClusterStatus.FINALIZING]
-        )
-
-    def is_installing(self):
-        return utils.is_cluster_in_status(
-            client=self.api_client, cluster_id=self.id, statuses=[consts.ClusterStatus.INSTALLING]
         )
 
     def reset_install(self):

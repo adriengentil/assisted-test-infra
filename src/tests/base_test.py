@@ -208,7 +208,9 @@ class BaseTest:
         return config
 
     @pytest.fixture
-    def new_day2_cluster_configuration(self, request: FixtureRequest, cluster: Cluster, triggers_enabled, triggers) -> Day2ClusterConfig:
+    def new_day2_cluster_configuration(
+        self, request: FixtureRequest, cluster: Cluster, triggers_enabled, triggers
+    ) -> Day2ClusterConfig:
         """
         Creates new day2 cluster configuration object.
         Override this fixture in your test class to provide a custom cluster configuration. (See TestInstall)
@@ -230,7 +232,9 @@ class BaseTest:
         # reference day1 cluster in day2 configuration
         config.day1_cluster = cluster
         config.day1_cluster_details = cluster.get_details()
-        config.day1_base_cluster_domain = f"{config.day1_cluster_details.name}.{config.day1_cluster_details.base_dns_domain}"
+        config.day1_base_cluster_domain = (
+            f"{config.day1_cluster_details.name}.{config.day1_cluster_details.base_dns_domain}"
+        )
         config.day1_api_vip_dnsname = f"api.{config.day1_base_cluster_domain}"
 
         # cluster_id may come already set when CLUSTER_ID environment variable is set
@@ -272,7 +276,9 @@ class BaseTest:
         yield utils.run_marked_fixture(new_cluster_configuration, "override_cluster_configuration", request)
 
     @pytest.fixture
-    def day2_cluster_configuration(self, request: pytest.FixtureRequest, new_day2_cluster_configuration: Day2ClusterConfig) -> Day2ClusterConfig:
+    def day2_cluster_configuration(
+        self, request: pytest.FixtureRequest, new_day2_cluster_configuration: Day2ClusterConfig
+    ) -> Day2ClusterConfig:
         yield utils.run_marked_fixture(new_day2_cluster_configuration, "override_day2_cluster_configuration", request)
 
     @pytest.fixture
@@ -497,18 +503,32 @@ class BaseTest:
     def day2_cluster(
         self,
         request: FixtureRequest,
+        api_client: InventoryClient,
         day2_cluster_configuration: Day2ClusterConfig,
         day2_nodes: Nodes,
     ):
         log.debug(f"--- SETUP --- Creating Day2 cluster for test: {request.node.name}\n")
-        log.debug(f"--- SETUP --- day2_cluster_configuration: {day2_cluster_configuration}\n")
-        log.debug(f"--- SETUP --- day2_nodes: {day2_nodes.controller._config}\n")
 
         day2_cluster = Day2Cluster(
-            config=day2_cluster_configuration, infra_env_config=InfraEnvConfig(), day2_nodes=day2_nodes
+            api_client=api_client,
+            config=day2_cluster_configuration,
+            infra_env_config=InfraEnvConfig(),
+            day2_nodes=day2_nodes,
         )
 
         yield day2_cluster
+
+        if self._is_test_failed(request) and global_variables.test_teardown and day2_cluster.is_installing():
+            log.info(f"--- TEARDOWN --- Cancelling installation {request.node.name}\n")
+            day2_cluster.cancel_install()
+
+        if global_variables.test_teardown:
+            with SuppressAndLog(ApiException):
+                day2_cluster.deregister_infraenv()
+
+            with suppress(ApiException):
+                log.info(f"--- TEARDOWN --- deleting created day2 cluster {day2_cluster.id}\n")
+                day2_cluster.delete()
 
     @pytest.fixture
     @JunitFixtureTestCase()
