@@ -176,13 +176,13 @@ data "libvirt_network_dns_host_template" "api-int" {
   hostname = "api-int.${local.base_cluster_domain}"
 }
 
-# TODO: leave only the wildcard cname entry defined and remove the other specific DNS assignments
+# TODO: leave only the wildcard address entry defined and remove the other specific DNS assignments
 # Read more at: https://bugzilla.redhat.com/show_bug.cgi?id=1532856
-data "libvirt_network_dnsmasq_options_template" "wildcard-ingress-cname" {
+data "libvirt_network_dnsmasq_options_template" "wildcard-apps-ingress" {
   # Enable "apps" wildcard in case of SNO and when we try to add day2 worker to SNO
   count        = var.ingress_vip == var.api_vip ? 1 : 0
-  option_name  = "cname"
-  option_value = "*.apps.${local.base_cluster_domain},${var.ingress_vip}"
+  option_name  = "address"
+  option_value = "/apps.${local.base_cluster_domain}/${var.ingress_vip}"
 }
 
 data "libvirt_network_dns_host_template" "oauth" {
