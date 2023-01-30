@@ -6,7 +6,7 @@ from assisted_service_client import models
 from junit_report import JunitTestCase
 
 import consts
-from assisted_test_infra.test_infra import BaseClusterConfig, BaseInfraEnvConfig, Nodes, utils
+from assisted_test_infra.test_infra import BaseClusterConfig, BaseInfraEnvConfig, Nodes
 from assisted_test_infra.test_infra.controllers.node_controllers import Node
 from assisted_test_infra.test_infra.helper_classes.cluster_host import ClusterHost
 from assisted_test_infra.test_infra.helper_classes.entity import Entity
