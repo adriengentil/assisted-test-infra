@@ -55,7 +55,7 @@ resource "libvirt_network" "net" {
   dnsmasq_options {
     dynamic "options" {
       for_each = concat(
-        data.libvirt_network_dnsmasq_options_template.wildcard-ingress-cname.*.rendered,
+        data.libvirt_network_dnsmasq_options_template.wildcard-apps-ingress.*.rendered,
       )
       content {
         option_name  = options.value.option_name
