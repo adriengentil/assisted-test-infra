@@ -385,9 +385,7 @@ class Cluster(BaseCluster):
 
         extra_vars = {}
         if vip_dhcp_allocation is None:
-            extra_vars["vip_dhcp_allocation"] = (
-                self._config.vip_dhcp_allocation if self._config.vip_dhcp_allocation else False
-            )
+            extra_vars["vip_dhcp_allocation"] = self._config.vip_dhcp_allocation or False
         else:
             extra_vars["vip_dhcp_allocation"] = vip_dhcp_allocation
 

@@ -174,8 +174,8 @@ class TerraformController(LibvirtController):
         tfvars["bootstrap_in_place"] = self._config.bootstrap_in_place
 
         vips = self.get_ingress_and_api_vips()
-        tfvars["api_vip"] = self._config.api_vip if self._config.api_vip else vips["api_vip"]
-        tfvars["ingress_vip"] = self._config.ingress_vip if self._config.ingress_vip else vips["ingress_vip"]
+        tfvars["api_vip"] = self._config.api_vip or vips["api_vip"]
+        tfvars["ingress_vip"] = self._config.ingress_vip or vips["ingress_vip"]
         if self._config.base_cluster_domain:
             tfvars["base_cluster_domain"] = self._config.base_cluster_domain
 
