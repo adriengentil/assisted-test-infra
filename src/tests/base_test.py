@@ -37,6 +37,7 @@ from assisted_test_infra.test_infra.helper_classes.config import BaseConfig, Bas
 from assisted_test_infra.test_infra.helper_classes.day2_cluster import Day2Cluster
 from assisted_test_infra.test_infra.helper_classes.events_handler import EventsHandler
 from assisted_test_infra.test_infra.helper_classes.infra_env import InfraEnv
+from assisted_test_infra.test_infra.helper_classes.terraform_config_helper import TerraformConfigHelper
 from assisted_test_infra.test_infra.tools import LibvirtNetworkAssets
 from service_client import InventoryClient, SuppressAndLog, log
 from tests.config import ClusterConfig, InfraEnvConfig, TerraformConfig, global_variables
@@ -133,13 +134,19 @@ class BaseTest:
 
     @pytest.fixture
     def prepared_day2_controller_configuration(
-        self, new_day2_controller_configuration: BaseNodesConfig, day2_cluster_configuration: Day2ClusterConfig
+        self,
+        new_day2_controller_configuration: BaseNodesConfig,
+        day2_cluster_configuration: Day2ClusterConfig,
+        terraform_config_helper: Optional[TerraformConfigHelper],
     ) -> BaseNodesConfig:
         assert isinstance(new_day2_controller_configuration, TerraformConfig)
 
-        # Configuring net asset which currently supported by libvirt terraform only
-        net_asset = LibvirtNetworkAssets()
-        new_day2_controller_configuration.net_asset = net_asset.get()
+        if terraform_config_helper:
+            net_asset = terraform_config_helper.update(new_day2_controller_configuration)
+        else:
+            # Configuring net asset which currently supported by libvirt terraform only
+            net_asset = LibvirtNetworkAssets()
+            new_day2_controller_configuration.net_asset = net_asset.get()
 
         day1_api_vip = day2_cluster_configuration.day1_cluster_details.api_vip
         day1_ingress_vip = day2_cluster_configuration.day1_cluster_details.ingress_vip
@@ -152,6 +159,14 @@ class BaseTest:
 
         yield new_day2_controller_configuration
         net_asset.release_all()
+
+    @pytest.fixture
+    def terraform_config_helper(self) -> Optional[TerraformConfigHelper]:
+        inventory_file = utils.get_env("CI_INVENTORY_FILE")
+        if inventory_file:
+            return TerraformConfigHelper(inventory_file)
+
+        return None
 
     @pytest.fixture
     def controller_configuration(
