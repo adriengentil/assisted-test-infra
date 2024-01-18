@@ -30,6 +30,18 @@ resource "oci_identity_tag" "cluster_instance_role" {
   }
 }
 
+data "oci_core_subnet" "private_subnet" {
+  subnet_id = var.oci_private_subnet_oicd
+}
+
+resource "oci_core_subnet" "iscsi_subnet" {
+  cidr_block        = "10.0.2.0/24"
+  compartment_id    = var.oci_compartment_oicd
+  vcn_id            = var.oci_vcn_oicd
+  route_table_id    = data.oci_core_subnet.private_subnet.route_table_id
+  security_list_ids = data.oci_core_subnet.private_subnet.security_list_ids
+}
+
 # Create master instances
 resource "oci_core_instance" "master" {
   count = var.masters_count
@@ -61,9 +73,8 @@ resource "oci_core_instance" "master" {
 
   create_vnic_details {
     assign_public_ip          = false
-    assign_private_dns_record = true
-    hostname_label            = "${var.cluster_name}-master-${count.index}"
-    subnet_id                 = var.oci_private_subnet_oicd
+    assign_private_dns_record = false
+    subnet_id                 = oci_core_subnet.iscsi_subnet.id
     nsg_ids = concat(
       [
         oci_core_network_security_group.nsg_cluster.id,
@@ -115,9 +126,8 @@ resource "oci_core_instance" "worker" {
 
   create_vnic_details {
     assign_public_ip          = false
-    assign_private_dns_record = true
-    hostname_label            = "${var.cluster_name}-worker-${count.index}"
-    subnet_id                 = var.oci_private_subnet_oicd
+    assign_private_dns_record = false
+    subnet_id                 = oci_core_subnet.iscsi_subnet.id
     nsg_ids = concat(
       [
         oci_core_network_security_group.nsg_cluster.id,
@@ -136,6 +146,64 @@ resource "oci_core_instance" "worker" {
 
   # ensure the custom image was updated before creating these instances
   depends_on = [oci_core_compute_image_capability_schema.discovery_image_firmware_uefi_64]
+}
+
+resource "oci_core_vnic_attachment" "master_vnic_attachments" {
+  count = length(oci_core_instance.master)
+
+  #Required
+  create_vnic_details {
+    assign_public_ip          = false
+    assign_private_dns_record = true
+    hostname_label            = "${var.cluster_name}-master-${count.index}"
+    subnet_id                 = var.oci_private_subnet_oicd
+    nsg_ids = concat(
+      [
+        oci_core_network_security_group.nsg_cluster.id,
+        oci_core_network_security_group.nsg_cluster_access.id,      # allow access from other cluster nodes
+        oci_core_network_security_group.nsg_load_balancer_access.id # allow access from load balancer
+      ],
+      var.oci_extra_node_nsg_oicds # e.g.: allow access to ci-machine (assisted-service)
+    )
+  }
+  instance_id = oci_core_instance.master[count.index].id
+
+  display_name = "${var.cluster_name}-master-${count.index}-vnic"
+}
+
+resource "oci_core_vnic_attachment" "worker_vnic_attachments" {
+  count = length(oci_core_instance.worker)
+
+  #Required
+  create_vnic_details {
+    assign_public_ip          = false
+    assign_private_dns_record = true
+    hostname_label            = "${var.cluster_name}-worker-${count.index}"
+    subnet_id                 = var.oci_private_subnet_oicd
+    nsg_ids = concat(
+      [
+        oci_core_network_security_group.nsg_cluster.id,
+        oci_core_network_security_group.nsg_cluster_access.id,      # allow access from other cluster nodes
+        oci_core_network_security_group.nsg_load_balancer_access.id # allow access from load balancer
+      ],
+      var.oci_extra_node_nsg_oicds # e.g.: allow access to ci-machine (assisted-service)
+    )
+  }
+  instance_id = oci_core_instance.worker[count.index].id
+
+  display_name = "${var.cluster_name}-worker-${count.index}-vnic"
+}
+
+data "oci_core_vnic" "master_secondary_vnics" {
+  count = length(oci_core_vnic_attachment.master_vnic_attachments)
+
+  vnic_id = oci_core_vnic_attachment.master_vnic_attachments[count.index].vnic_id
+}
+
+data "oci_core_vnic" "worker_secondary_vnics" {
+  count = length(oci_core_vnic_attachment.worker_vnic_attachments)
+
+  vnic_id = oci_core_vnic_attachment.worker_vnic_attachments[count.index].vnic_id
 }
 
 resource "oci_identity_dynamic_group" "master_nodes" {
