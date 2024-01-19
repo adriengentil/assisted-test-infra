@@ -68,6 +68,7 @@ class BaseCluster(Entity, ABC):
                 static_network_config=static_network_config,
                 iso_download_path=iso_download_path or self._config.iso_download_path,
                 iso_image_type=self._config.iso_image_type,
+                ignition_info=self._infra_env_config.ignition_config_override,
             )
         return self._infra_env.download_image(iso_download_path or self._config.iso_download_path)
 
