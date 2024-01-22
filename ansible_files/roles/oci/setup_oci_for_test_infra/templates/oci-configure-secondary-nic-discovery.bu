@@ -37,12 +37,6 @@ storage:
           nmcli connection up "${secondary_if_name}"
         fi
 
-        if [ ! -f "/etc/default/nodeip-configuration" ]
-        then
-          # Ensure Kubernetes will use the secondary interface
-          echo "NODEIP_HINT=${secondary_if_ip_address}" > /etc/default/nodeip-configuration
-        fi
-
         # workaround to ensure the primary interface will get DNS settings from DHCP
         primary_if_mac_address=$(jq -r '.[0].macAddr' <<< "${vnics}")
         primary_if_name=$(get_if_name_from_mac_address "${primary_if_mac_address}")

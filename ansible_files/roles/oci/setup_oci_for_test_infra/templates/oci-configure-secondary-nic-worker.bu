@@ -16,6 +16,7 @@ storage:
         set -x
 
         MTU=9000
+        NODEIP_CONF=/etc/systemd/system/kubelet.service.d/30-oci-nodeip.conf
 
         function get_if_name_from_mac_address {
           mac_address="${1}"
@@ -41,10 +42,12 @@ storage:
           nmcli connection up "${secondary_if_name}"
         fi
 
-        if [ ! -f "/etc/default/nodeip-configuration" ]
+        if [ ! -f "${NODEIP_CONF}" ]
         then
-          # Ensure Kubernetes will use the secondary interface
-          echo "NODEIP_HINT=${secondary_if_ip_address}" > /etc/default/nodeip-configuration
+          cat > "${NODEIP_CONF}" << EOF
+        [Service]
+        Environment="KUBELET_NODE_IP=${secondary_if_ip_address}"
+        EOF
         fi
 
         # workaround to ensure the primary interface will get DNS settings from DHCP
