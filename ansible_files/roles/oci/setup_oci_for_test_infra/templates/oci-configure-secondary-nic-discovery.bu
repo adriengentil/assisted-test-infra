@@ -40,7 +40,7 @@ storage:
         if [ ! -f "/etc/default/nodeip-configuration" ]
         then
           # Ensure Kubernetes will use the secondary interface
-          echo "NODEIP_HINT=${secondary_if_name}" > /etc/default/nodeip-configuration
+          echo "NODEIP_HINT=${secondary_if_ip_address}" > /etc/default/nodeip-configuration
         fi
 
         # workaround to ensure the primary interface will get DNS settings from DHCP
